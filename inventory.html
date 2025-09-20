@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory Manager</title>
+<style>
+  body { font-family: sans-serif; background: #f9f9f9; margin: 0; }
+  header { background: #fff; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  header h1 { display: inline-block; margin: 0; }
+  header .tabs button { margin-left: 0.5rem; }
+  main { padding: 1rem; }
+  .card { background: #fff; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+  .card img { width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 0.5rem; }
+  .notification { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); background: green; color: #fff; padding: 0.5rem 1rem; border-radius: 5px; margin-top: 0.5rem; display: none; }
+  .notification.error { background: red; }
+  .hidden { display: none; }
+  .flex-row { display: flex; align-items: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Inventory Manager</h1>
+  <div class="tabs">
+    <button onclick="switchTab('sale')">Sale</button>
+    <button onclick="switchTab('warehouse')">Warehouse</button>
+    <button onclick="switchTab('history')">History</button>
+    <button onclick="switchTab('edit')">Edit</button>
+  </div>
+</header>
+
+<main>
+  <div id="tab-sale" class="tab">
+    <h2>Sale Items</h2>
+    <div id="sale-items"></div>
+    <button onclick="confirmSale()">Confirm Sale</button>
+  </div>
+
+  <div id="tab-warehouse" class="tab hidden">
+    <h2>Warehouse Stock</h2>
+    <div id="warehouse-items"></div>
+    <button onclick="confirmWarehouse()">Move to Sale Stock</button>
+  </div>
+
+  <div id="tab-history" class="tab hidden">
+    <h2>Transaction History</h2>
+    <div id="history-items"></div>
+  </div>
+
+  <div id="tab-edit" class="tab hidden">
+    <h2>Edit Inventory</h2>
+    <div id="edit-login">
+      <input type="password" id="edit-password" placeholder="Enter password"/>
+      <button onclick="unlockEdit()">Unlock</button>
+    </div>
+    <div id="edit-content" class="hidden">
+      <button onclick="addItem()">Add Item</button>
+      <div id="edit-items"></div>
+      <button onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</main>
+
+<script>
+let activeTab = 'sale';
+let items = JSON.parse(localStorage.getItem('inventory-items')) || [
+  {id:'1',name:'Product A', warehouseStock:100, saleStock:50, itemsPerPack:10},
+  {id:'2',name:'Product B', warehouseStock:200, saleStock:30, itemsPerPack:5},
+  {id:'3',name:'Product C', warehouseStock:150, saleStock:20, itemsPerPack:20},
+];
+let transactions = JSON.parse(localStorage.getItem('inventory-transactions')) || [];
+let saleQuantities = {};
+let warehouseQuantities = {};
+let isEditing = false;
+
+function showNotification(message, type='success') {
+  const n = document.createElement('div');
+  n.className = 'notification ' + (type==='error'?'error':'');
+  n.innerText = message;
+  document.body.appendChild(n);
+  n.style.display = 'block';
+  setTimeout(() => { n.remove(); }, 3000);
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(div => div.classList.add('hidden'));
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+  render();
+}
+
+function render() {
+  const saleContainer = document.getElementById('sale-items');
+  saleContainer.innerHTML = '';
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'card flex-row';
+    div.innerHTML = `<img src="${item.logo||''}" alt="Logo"/>
+      <span>${item.name} (Stock: ${item.saleStock})</span>
+      <button onclick="changeSale('${item.id}',-1)">-</button>
+      <input type="number" min="0" max="${item.saleStock}" value="${saleQuantities[item.id]||0}" onchange="changeSale('${item.id}',0,this.value)">
+      <button onclick="changeSale('${item.id}',1)">+</button>`;
+    saleContainer.appendChild(div);
+  });
+
+  const warehouseContainer = document.getElementById('warehouse-items');
+  warehouseContainer.innerHTML = '';
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'card flex-row';
+    div.innerHTML = `<img src="${item.logo||''}" alt="Logo"/>
+      <span>${item.name} (Warehouse: ${item.warehouseStock}, ${item.itemsPerPack}/pack)</span>
+      <button onclick="changeWarehouse('${item.id}',-1)">-</button>
+      <input type="number" min="0" value="${warehouseQuantities[item.id]||0}" onchange="changeWarehouse('${item.id}',0,this.value)">
+      <button onclick="changeWarehouse('${item.id}',1)">+</button>`;
+    warehouseContainer.appendChild(div);
+  });
+
+  const historyContainer = document.getElementById('history-items');
+  historyContainer.innerHTML = '';
+  transactions.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `<div>${new Date(t.timestamp).toLocaleString()}</div>
+      <ul>${t.items.map(i=>`<li>${i.name} x${i.quantity}</li>`).join('')}</ul>`;
+    historyContainer.appendChild(div);
+  });
+
+  if(isEditing){
+    document.getElementById('edit-login').classList.add('hidden');
+    document.getElementById('edit-content').classList.remove('hidden');
+    const editContainer = document.getElementById('edit-items');
+    editContainer.innerHTML = '';
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `<input value="${item.name}" onchange="editItem('${item.id}','name',this.value)">
+        <input type="number" min="1" value="${item.itemsPerPack}" onchange="editItem('${item.id}','itemsPerPack',this.value)">
+        <input type="number" min="0" value="${item.warehouseStock}" onchange="editItem('${item.id}','warehouseStock',this.value)">
+        <input type="number" min="0" value="${item.saleStock}" onchange="editItem('${item.id}','saleStock',this.value)">
+        <input type="file" accept="image/*" onchange="uploadImage(event,'${item.id}')">
+        <img src="${item.logo||''}" style="width:50px;height:50px;object-fit:cover"/>
+        <button onclick="removeItem('${item.id}')">Remove</button>`;
+      editContainer.appendChild(div);
+    });
+  }
+}
+
+// Sale
+function changeSale(id, delta, val=null){
+  const item = items.find(i=>i.id===id);
+  if(val!==null) saleQuantities[id] = Math.min(Math.max(0, parseInt(val)), item.saleStock);
+  else saleQuantities[id] = Math.min(Math.max(0,(saleQuantities[id]||0)+delta), item.saleStock);
+  render();
+}
+
+function confirmSale(){
+  const toSell = Object.entries(saleQuantities).filter(([_,q])=>q>0);
+  if(toSell.length===0){ showNotification('No items selected','error'); return; }
+  toSell.forEach(([id,q])=>{
+    const item = items.find(i=>i.id===id);
+    item.saleStock -= q;
+  });
+  transactions.unshift({timestamp: new Date(), items: toSell.map(([id,q])=>{const i=items.find(it=>it.id===id); return {id,name:i.name,quantity:q};})});
+  saleQuantities={};
+  saveData();
+  showNotification('Sale confirmed!');
+  render();
+}
+
+// Warehouse
+function changeWarehouse(id, delta, val=null){
+  const item = items.find(i=>i.id===id);
+  if(val!==null) warehouseQuantities[id] = Math.max(0, parseInt(val));
+  else warehouseQuantities[id] = Math.max(0,(warehouseQuantities[id]||0)+delta);
+  render();
+}
+
+function confirmWarehouse(){
+  const toMove = Object.entries(warehouseQuantities).filter(([_,q])=>q>0);
+  if(toMove.length===0){ showNotification('No items selected','error'); return; }
+  toMove.forEach(([id,q])=>{
+    const item = items.find(i=>i.id===id);
+    const moved = q*item.itemsPerPack;
+    item.warehouseStock -= moved;
+    item.saleStock += moved;
+  });
+  warehouseQuantities={};
+  saveData();
+  showNotification('Stock moved!');
+  render();
+}
+
+// Edit
+function unlockEdit(){
+  const pw = document.getElementById('edit-password').value;
+  if(pw==='stockbaru'){ isEditing=true; render(); showNotification('Edit mode activated'); }
+  else showNotification('Incorrect password','error');
+}
+
+function editItem(id,field,value){
+  const item = items.find(i=>i.id===id);
+  if(['itemsPerPack','warehouseStock','saleStock'].includes(field)) value=parseInt(value)||0;
+  item[field]=value;
+}
+
+function uploadImage(event,id){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const item = items.find(i=>i.id===id);
+    item.logo=e.target.result;
+    saveData();
+    render();
+  };
+  reader.readAsDataURL(file);
+}
+
+function addItem(){
+  items.push({id:Date.now(),name:'New Item',warehouseStock:0,saleStock:0,itemsPerPack:1});
+  render();
+}
+
+function removeItem(id){ items = items.filter(i=>i.id!==id); render(); }
+
+function saveEdit(){ isEditing=false; saveData(); showNotification('Changes saved'); render(); }
+
+function saveData(){
+  localStorage.setItem('inventory-items', JSON.stringify(items));
+  localStorage.setItem('inventory-transactions', JSON.stringify(transactions));
+}
+
+// Initial render
+render();
+</script>
+</body>
+</html>
