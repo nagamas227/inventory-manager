@@ -5,15 +5,126 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inventory Manager</title>
 <style>
-  body { font-family: sans-serif; background: #f9f9f9; margin: 0; }
-  header { background: #fff; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-  header h1 { display: inline-block; margin: 0; }
-  header .tabs button { margin-left: 0.5rem; }
-  main { padding: 1rem; }
-  .card { background: #fff; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-  .card img { width: 50px; height: 50px; object-fit: cover; border-radius: 5px; margin-right: 0.5rem; }
-  .notification { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); background: green; color: #fff; padding: 0.5rem 1rem; border-radius: 5px; margin-top: 0.5rem; display: none; }
-  .notification.error { background: red; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    margin: 0;
+    background: #ffeb3b; /* yellow background */
+    min-height: 100vh;
+    color: #333;
+  }
+
+  header {
+    background: #fff;
+    padding: 1rem 2rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #e65100;
+  }
+
+  header .tabs button {
+    margin-left: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #ff9800; /* orange */
+    border: none;
+    border-radius: 20px;
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  header .tabs button:hover {
+    background: #f57c00;
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+  }
+
+  main {
+    padding: 2rem;
+  }
+
+  .card {
+    background: #fff;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform 0.2s;
+  }
+
+  .card:hover {
+    transform: scale(1.02);
+  }
+
+  .card img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-right: 0.8rem;
+  }
+
+  button {
+    padding: 0.5rem 1rem;
+    background: #ff9800; /* orange */
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  button:hover {
+    background: #f57c00;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+  }
+
+  input[type="number"],
+  input[type="password"],
+  input[type="text"],
+  input[type="file"] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    outline: none;
+    transition: border 0.2s;
+  }
+
+  input:focus {
+    border: 1px solid #ff9800;
+  }
+
+  .notification {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #4caf50;
+    color: #fff;
+    padding: 0.8rem 1.2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    font-weight: bold;
+    display: none;
+    z-index: 999;
+  }
+
+  .notification.error {
+    background: #e53935;
+  }
+
   .hidden { display: none; }
   .flex-row { display: flex; align-items: center; }
 </style>
